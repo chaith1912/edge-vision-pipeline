@@ -1,0 +1,19 @@
+# Python environment caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+ENV/
+
+# OS specific system files
+.DS_Store
+Thumbs.db
+
+# Docker & local data mount rules
+.docker/
+model-weights/
+*.pt
+*.onnx

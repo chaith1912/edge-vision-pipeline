@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # CONTAINER 1: THE DATA BROKER (REDIS)
+  broker:
+    image: redis:7.2-alpine
+    container_name: aegis-redis-broker
+    ports:
+      - "6379:6379"
+    networks:
+      - vision-network
+    command: redis-server --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # CONTAINER 2: THE VIDEO CAMERA INGESTION
+  ingestion:
+    build:
+      context: ../
+      dockerfile: services/ingestion/Dockerfile
+    container_name: aegis-ingestion-service
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - vision-network
+    environment:
+      - REDIS_HOST=broker
+      - REDIS_PORT=6379
+    restart: on-failure
+
+  # CONTAINER 3: THE AI INFERENCE WORKER (YOLOv12)
+  inference:
+    build:
+      context: ../
+      dockerfile: services/inference/Dockerfile
+    container_name: aegis-inference-service
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - vision-network
+    environment:
+      - REDIS_HOST=broker
+      - REDIS_PORT=6379
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - model-weights:/usr/src/app/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu] # Links Docker directly to your RTX 4050
+    restart: on-failure
+
+  # CONTAINER 4: THE USER INTERFACE (STREAMLIT)
+  dashboard:
+    build:
+      context: ../
+      dockerfile: services/dashboard/Dockerfile
+    container_name: aegis-dashboard-ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      broker:
+        condition: service_healthy
+    networks:
+      - vision-network
+    environment:
+      - REDIS_HOST=broker
+      - REDIS_PORT=6379
+    restart: on-failure
+
+networks:
+  vision-network:
+    driver: bridge
+
+volumes:
+  model-weights:
