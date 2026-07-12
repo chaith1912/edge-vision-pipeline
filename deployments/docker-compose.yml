@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # CONTAINER 1: THE DATA BROKER (REDIS)
   broker:
@@ -32,7 +30,7 @@ services:
       - REDIS_PORT=6379
     restart: on-failure
 
-  # CONTAINER 3: THE AI INFERENCE WORKER (YOLOv12)
+  # CONTAINER 3: THE AI INFERENCE WORKER (YOLO)
   inference:
     build:
       context: ../
@@ -58,19 +56,19 @@ services:
               capabilities: [gpu] # Links Docker directly to your RTX 4050
     restart: on-failure
 
-  # CONTAINER 4: THE USER INTERFACE (STREAMLIT)
+  # CONTAINER 4: THE USER INTERFACE (STREAMLIT/FLASK)
   dashboard:
     build:
       context: ../
       dockerfile: services/dashboard/Dockerfile
     container_name: aegis-dashboard-ui
     ports:
-      - "8501:8501"
+      - "5000:5000"  # Exposed for the Flask MJPEG viewer stream
     depends_on:
       broker:
         condition: service_healthy
     networks:
-      - vision-network
+      - vision-network  # Corrected to join the active core network bridge
     environment:
       - REDIS_HOST=broker
       - REDIS_PORT=6379
@@ -81,4 +79,4 @@ networks:
     driver: bridge
 
 volumes:
-  model-weights:
+  model-weights: {}  # Properly initialized standard named storage volume
